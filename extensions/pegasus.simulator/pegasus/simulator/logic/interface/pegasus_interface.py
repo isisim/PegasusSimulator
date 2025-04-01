@@ -13,6 +13,7 @@ import yaml
 import asyncio
 import os
 from threading import Lock
+import pathlib
 
 # NVidia API imports
 import carb
@@ -256,7 +257,16 @@ class PegasusInterface:
 
         # Load the USD asset that will be used for the environment
         try:
+            carb.log_warn(f"Loading assets from usd_path: {usd_path}")
+            carb.log_warn(f"Current path: {pathlib.Path().resolve()}")
+            parent_path = pathlib.Path().resolve()
+            props_path = "PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Props"
+            # Load base world
             self.load_asset(usd_path, "/World/layout")
+            # Load assets
+            self.load_asset(f"{parent_path}/{props_path}/base.usd", "/World/base")
+            self.load_asset(f"{parent_path}/{props_path}/aruco_marker_0.usd", "/World/aruco_marker_0")
+
         except Exception as e:
             carb.log_warn("Could not load the desired environment: " + str(e))
 
