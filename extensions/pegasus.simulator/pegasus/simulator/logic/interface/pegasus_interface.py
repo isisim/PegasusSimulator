@@ -14,24 +14,35 @@ import asyncio
 import os
 from threading import Lock
 import pathlib
+import numpy as np
+from pxr import UsdGeom, Gf
 
 # NVidia API imports
 import carb
 import omni.kit.app
 from omni.isaac.core.world import World
-from omni.isaac.core.utils.stage import clear_stage, create_new_stage_async, update_stage_async, create_new_stage
+from omni.isaac.core.utils.stage import (
+    clear_stage,
+    create_new_stage_async,
+    update_stage_async,
+    create_new_stage,
+)
 from omni.isaac.core.utils.viewports import set_camera_view
 import omni.isaac.nucleus as nucleus
 
 # Pegasus Simulator internal API
-from pegasus.simulator.params import DEFAULT_WORLD_SETTINGS, SIMULATION_ENVIRONMENTS, CONFIG_FILE
+from pegasus.simulator.params import (
+    DEFAULT_WORLD_SETTINGS,
+    SIMULATION_ENVIRONMENTS,
+    CONFIG_FILE,
+)
 from pegasus.simulator.logic.vehicle_manager import VehicleManager
 
 
 class PegasusInterface:
     """
     PegasusInterface is a singleton class (there is only one object instance at any given time) that will be used
-    to 
+    to
     """
 
     # The object instance of the Vehicle Manager
@@ -60,10 +71,12 @@ class PegasusInterface:
         # Initialize the world with the default simulation settings
         self._world_settings = DEFAULT_WORLD_SETTINGS
         self._world = None
-        
+
         # Initialize the latitude, longitude and altitude of the simulated environment at the (0.0, 0.0, 0.0) coordinate
         # from the extension configuration file
-        self._latitude, self._longitude, self._altitude = self._get_global_coordinates_from_config()
+        self._latitude, self._longitude, self._altitude = (
+            self._get_global_coordinates_from_config()
+        )
 
         # Get the px4_path from the extension configuration file
         self._px4_path: str = self._get_px4_path_from_config()
@@ -87,7 +100,7 @@ class PegasusInterface:
             VehicleManager: The current instance of the VehicleManager.
         """
         return self._vehicle_manager
-    
+
     @property
     def latitude(self):
         """The latitude of the origin of the simulated world in degrees.
@@ -96,7 +109,7 @@ class PegasusInterface:
             float: The latitude of the origin of the simulated world in degrees.
         """
         return self._latitude
-    
+
     @property
     def longitude(self):
         """The longitude of the origin of the simulated world in degrees.
@@ -105,7 +118,7 @@ class PegasusInterface:
             float: The longitude of the origin of the simulated world in degrees.
         """
         return self._longitude
-    
+
     @property
     def altitude(self):
         """The altitude of the origin of the simulated world in meters.
@@ -114,7 +127,7 @@ class PegasusInterface:
             float: The latitude of the origin of the simulated world in meters.
         """
         return self._altitude
-    
+
     @property
     def px4_path(self):
         """A string with the installation directory for PX4 (if it was setup). Otherwise it is None.
@@ -123,7 +136,7 @@ class PegasusInterface:
             str: A string with the installation directory for PX4 (if it was setup). Otherwise it is None.
         """
         return self._px4_path
-    
+
     @property
     def px4_default_airframe(self):
         """A string with the PX4 default airframe (if it was setup). Otherwise it is None.
@@ -132,7 +145,7 @@ class PegasusInterface:
             str: A string with the PX4 default airframe (if it was setup). Otherwise it is None.
         """
         return self._px4_default_airframe
-    
+
     def set_global_coordinates(self, latitude=None, longitude=None, altitude=None):
         """Method that can be used to set the latitude, longitude and altitude of the simulation world at the origin.
 
@@ -151,19 +164,25 @@ class PegasusInterface:
         if self.altitude is not None:
             self._altitude = altitude
 
-        carb.log_warn("New global coordinates set to: " + str(self._latitude) + ", " + str(self._longitude) + ", " + str(self._altitude))
+        carb.log_warn(
+            "New global coordinates set to: "
+            + str(self._latitude)
+            + ", "
+            + str(self._longitude)
+            + ", "
+            + str(self._altitude)
+        )
 
     def initialize_world(self):
-        """Method that initializes the world object
-        """
+        """Method that initializes the world object"""
         self._world = World(**self._world_settings)
-        #asyncio.ensure_future(self._world.initialize_simulation_context_async())
+        # asyncio.ensure_future(self._world.initialize_simulation_context_async())
 
     def get_vehicle(self, stage_prefix: str):
         """Method that returns the vehicle object given its 'stage_prefix', i.e., the name the vehicle was spawned with in the simulator.
 
         Args:
-            stage_prefix (str): The name the vehicle will present in the simulator when spawned. 
+            stage_prefix (str): The name the vehicle will present in the simulator when spawned.
 
         Returns:
             Vehicle: Returns a vehicle object that was spawned with the given 'stage_prefix'
@@ -231,12 +250,12 @@ class PegasusInterface:
         asyncio.ensure_future(self._world.initialize_simulation_context_async())
         carb.log_info("Current scene and its vehicles has been deleted")
 
-    async def load_environment_async(self, usd_path: str, force_clear: bool=False):
+    async def load_environment_async(self, usd_path: str, force_clear: bool = False):
         """Method that loads a given world (specified in the usd_path) into the simulator asynchronously.
 
         Args:
             usd_path (str): The path where the USD file describing the world is located.
-            force_clear (bool): Whether to perform a clear before loading the asset. Defaults to False. 
+            force_clear (bool): Whether to perform a clear before loading the asset. Defaults to False.
             It should be set to True only if the method is invoked from an App (GUI mode).
         """
 
@@ -245,7 +264,6 @@ class PegasusInterface:
         # Reset and pause the world simulation (only if force_clear is true)
         # This is done to maximize the support between running in GUI as extension vs App
         if force_clear == True:
-
             # Create a new stage and initialize (or re-initialized) the world
             await create_new_stage_async()
             self._world = World(**self._world_settings)
@@ -259,22 +277,41 @@ class PegasusInterface:
         try:
             carb.log_warn(f"Loading assets from usd_path: {usd_path}")
             carb.log_warn(f"Current path: {pathlib.Path().resolve()}")
-            parent_path = pathlib.Path().resolve()
-            props_path = "PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Props"
+            # parent_path = pathlib.Path().resolve()
+            # parent_path = pathlib.Path().cwd() / "../.."
+            parent_path = pathlib.Path("/home/pedro-isi")
+            props_path = "Projects/AGRIWING/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Props"
+            # assets_path = "simulation_assets"
             # Load base world
-            self.load_asset(usd_path, "/World/layout")
+            self.load_asset(usd_path, "/World/layout", rotation_euler=(0, 0, 0))
             # Load assets
-            self.load_asset(f"{parent_path}/{props_path}/base.usd", "/World/base")
-            self.load_asset(f"{parent_path}/{props_path}/aruco_marker_0.usd", "/World/aruco_marker_0")
+            self.load_asset(
+                f"{parent_path}/{props_path}/Docking_bay/Base_Docagem_X650_Aberta_Small.usd",
+                "/World/base",
+                rotation_euler=(90*np.pi/180, 0, -90*np.pi/180),
+                position=(-3, 0, 2)
+            )
+            self.load_asset(
+                f"{parent_path}/{props_path}/Linha_cultivo_Small/Linha_Cultivo_Small.usd",
+                "/World/plants",
+                rotation_euler=(90*np.pi/180, 0, 0),
+            )
+            self.load_asset(
+                f"{parent_path}/{props_path}/arucos/arucos.usd",
+                "/World/arucos",
+                rotation_euler=(90*np.pi/180, 0, 0),
+                position=(-3,0,2.1)
+            )
+            # self.load_asset(f"{parent_path}/{props_path}/aruco_marker_0.usd", "/World/aruco_marker_0")
 
         except Exception as e:
             carb.log_warn("Could not load the desired environment: " + str(e))
 
         carb.log_info("A new environment has been loaded successfully")
 
-    def load_environment(self, usd_path: str, force_clear: bool=False):
+    def load_environment(self, usd_path: str, force_clear: bool = False):
         """Method that loads a given world (specified in the usd_path) into the simulator. If invoked from a python app,
-        this method should have force_clear=False, as the world reset and stop are performed asynchronously by this method, 
+        this method should have force_clear=False, as the world reset and stop are performed asynchronously by this method,
         and when we are operating in App mode, we want everything to run in sync.
 
         Args:
@@ -303,13 +340,20 @@ class PegasusInterface:
         # Try to load the asset into the world
         self.load_asset(usd_path, "/World/layout")
 
-    def load_asset(self, usd_asset: str, stage_prefix: str):
+    def load_asset(
+        self,
+        usd_asset: str,
+        stage_prefix: str,
+        position: tuple = (0, 0, 0),
+        rotation_euler: tuple = (0, 0, 0),
+        scale: tuple = (1, 1, 1),
+    ):
         """
         Method that will attempt to load an asset into the current simulation world, given the USD asset path.
 
         Args:
             usd_asset (str): The path where the USD file describing the world is located.
-            stage_prefix (str): The name the vehicle will present in the simulator when spawned. 
+            stage_prefix (str): The name the vehicle will present in the simulator when spawned.
         """
 
         # Try to check if there is already a prim with the same stage prefix in the stage
@@ -321,7 +365,48 @@ class PegasusInterface:
         success = prim.GetReferences().AddReference(usd_asset)
 
         if not success:
-            raise Exception("The usd asset" + usd_asset + "is not load at stage path " + stage_prefix)
+            raise Exception(
+                "The usd asset"
+                + usd_asset
+                + "is not load at stage path "
+                + stage_prefix
+            )
+
+        xform = UsdGeom.Xformable(prim)
+
+        # Set translation
+        translate_ops = [
+            op
+            for op in xform.GetOrderedXformOps()
+            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate
+        ]
+        if translate_ops:
+            translate_ops[0].Set(Gf.Vec3d(*position))
+        else:
+            xform.AddTranslateOp().Set(Gf.Vec3d(*position))
+
+        # Set rotation (Euler angles in radians to degrees)
+        rotation_deg = [r * 180.0 / np.pi for r in rotation_euler]
+        rotate_ops = [
+            op
+            for op in xform.GetOrderedXformOps()
+            if op.GetOpType() == UsdGeom.XformOp.TypeRotateXYZ
+        ]
+        if rotate_ops:
+            rotate_ops[0].Set(Gf.Vec3f(*rotation_deg))
+        else:
+            xform.AddRotateXYZOp().Set(Gf.Vec3f(*rotation_deg))
+
+        # Set scale
+        scale_ops = [
+            op
+            for op in xform.GetOrderedXformOps()
+            if op.GetOpType() == UsdGeom.XformOp.TypeScale
+        ]
+        if scale_ops:
+            scale_ops[0].Set(Gf.Vec3f(*scale))
+        else:
+            xform.AddScaleOp().Set(Gf.Vec3f(*scale))
 
     def set_viewport_camera(self, camera_position, camera_target):
         """Sets the viewport camera to given position and makes it point to another target position.
@@ -333,7 +418,9 @@ class PegasusInterface:
         # Set the camera view to a fixed value
         set_camera_view(eye=camera_position, target=camera_target)
 
-    def set_world_settings(self, physics_dt=None, stage_units_in_meters=None, rendering_dt=None):
+    def set_world_settings(
+        self, physics_dt=None, stage_units_in_meters=None, rendering_dt=None
+    ):
         """
         Set the current world settings to the pre-defined settings. TODO - finish the implementation of this method.
         For now these new setting will never override the default ones.
@@ -353,43 +440,46 @@ class PegasusInterface:
 
     def _get_px4_path_from_config(self):
         """
-        Method that reads the configured PX4 installation directory from the extension configuration file 
+        Method that reads the configured PX4 installation directory from the extension configuration file
 
         Returns:
             str: A string with the path to the px4 configuration directory or empty string ''
         """
 
         px4_dir = ""
-        
+
         # Open the configuration file. If it fails, just return the empty path
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 data = yaml.safe_load(f)
             px4_dir = os.path.expanduser(data.get("px4_dir", None))
         except:
             carb.log_warn("Could not retrieve px4_dir from: " + str(CONFIG_FILE))
 
         return px4_dir
-    
+
     def _get_px4_default_airframe_from_config(self):
         """
-        Method that reads the configured PX4 default airframe from the extension configuration file 
+        Method that reads the configured PX4 default airframe from the extension configuration file
 
         Returns:
             str: A string with the path to the PX4 default airframe or empty string ''
         """
         px4_default_airframe = ""
-        
+
         # Open the configuration file. If it fails, just return the empty path
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 data = yaml.safe_load(f)
-            px4_default_airframe = os.path.expanduser(data.get("px4_default_airframe", None))
+            px4_default_airframe = os.path.expanduser(
+                data.get("px4_default_airframe", None)
+            )
         except:
-            carb.log_warn("Could not retrieve px4_default_airframe from: " + str(CONFIG_FILE))
+            carb.log_warn(
+                "Could not retrieve px4_default_airframe from: " + str(CONFIG_FILE)
+            )
 
         return px4_default_airframe
-
 
     def _get_global_coordinates_from_config(self):
         """Method that reads the default latitude, longitude and altitude from the extension configuration file
@@ -404,16 +494,18 @@ class PegasusInterface:
 
         # Open the configuration file. If it fails, just return the empty path
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 data = yaml.safe_load(f)
-                
+
                 # Try to read the coordinates from the configuration file
                 global_coordinates = data.get("global_coordinates", {})
                 latitude = global_coordinates.get("latitude", 0.0)
                 longitude = global_coordinates.get("longitude", 0.0)
                 altitude = global_coordinates.get("altitude", 0.0)
         except:
-            carb.log_warn("Could not retrieve the global coordinates from: " + str(CONFIG_FILE))
+            carb.log_warn(
+                "Could not retrieve the global coordinates from: " + str(CONFIG_FILE)
+            )
 
         return (latitude, longitude, altitude)
 
@@ -423,19 +515,18 @@ class PegasusInterface:
         Args:
             absolute_path (str): The new path of the px4-autopilot installation directory
         """
-        
+
         # Save the new path for current use during this simulation
         self._px4_path = os.path.expanduser(path)
 
         # Save the new path in the configurations file for the next simulations
         try:
-
             # Open the configuration file and the all the configurations that it contains
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 data = yaml.safe_load(f)
 
             # Open the configuration file. If it fails, just warn in the console
-            with open(CONFIG_FILE, 'w') as f:
+            with open(CONFIG_FILE, "w") as f:
                 data["px4_dir"] = path
                 yaml.dump(data, f)
         except:
@@ -449,47 +540,50 @@ class PegasusInterface:
         Args:
             absolute_path (str): The new px4 default airframe
         """
-        
+
         # Save the new path for current use during this simulation
         self._px4_default_airframe = airframe
 
         # Save the new path in the configurations file for the next simulations
         try:
-
             # Open the configuration file and the all the configurations that it contains
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 data = yaml.safe_load(f)
 
             # Open the configuration file. If it fails, just warn in the console
-            with open(CONFIG_FILE, 'w') as f:
+            with open(CONFIG_FILE, "w") as f:
                 data["px4_default_airframe"] = airframe
                 yaml.dump(data, f)
         except:
             carb.log_warn("Could not save px4_default_airframe to: " + str(CONFIG_FILE))
 
-        carb.log_warn("New px4_default_airframe set to: " + str(self._px4_default_airframe))
+        carb.log_warn(
+            "New px4_default_airframe set to: " + str(self._px4_default_airframe)
+        )
 
     def set_default_global_coordinates(self):
         """
-        Method that sets the latitude, longitude and altitude from the pegasus interface to the 
+        Method that sets the latitude, longitude and altitude from the pegasus interface to the
         default global coordinates specified in the extension configuration file
         """
-        self._latitude, self._longitude, self._altitude = self._get_global_coordinates_from_config()
+        self._latitude, self._longitude, self._altitude = (
+            self._get_global_coordinates_from_config()
+        )
 
-    def set_new_default_global_coordinates(self, latitude: float=None, longitude: float=None, altitude: float=None):
-        
+    def set_new_default_global_coordinates(
+        self, latitude: float = None, longitude: float = None, altitude: float = None
+    ):
         # Set the current global coordinates to the new default global coordinates
         self.set_global_coordinates(latitude, longitude, altitude)
 
         # Update the default global coordinates in the configuration file
         try:
             # Open the configuration file and the all the configurations that it contains
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 data = yaml.safe_load(f)
 
             # Open the configuration file. If it fails, just warn in the console
-            with open(CONFIG_FILE, 'w') as f:
-
+            with open(CONFIG_FILE, "w") as f:
                 if latitude is not None:
                     data["global_coordinates"]["latitude"] = latitude
 
@@ -498,14 +592,22 @@ class PegasusInterface:
 
                 if altitude is not None:
                     data["global_coordinates"]["altitude"] = altitude
-                
-                # Save the updated configurations    
+
+                # Save the updated configurations
                 yaml.dump(data, f)
         except:
-            carb.log_warn("Could not save the new global coordinates to: " + str(CONFIG_FILE))
+            carb.log_warn(
+                "Could not save the new global coordinates to: " + str(CONFIG_FILE)
+            )
 
-        carb.log_warn("New global coordinates set to: latitude=" + str(latitude) + ", longitude=" + str(longitude) + ", altitude=" + str(altitude))
-
+        carb.log_warn(
+            "New global coordinates set to: latitude="
+            + str(latitude)
+            + ", longitude="
+            + str(longitude)
+            + ", altitude="
+            + str(altitude)
+        )
 
     def __new__(cls):
         """Allocates the memory and creates the actual PegasusInterface object is not instance exists yet. Otherwise,
