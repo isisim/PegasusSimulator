@@ -300,7 +300,13 @@ class PegasusInterface:
                 f"{parent_path}/{props_path}/arucos/arucos.usd",
                 "/World/arucos",
                 rotation_euler=(90*np.pi/180, 0, 0),
-                position=(-3,0,2.1)
+                position=(-1.5,0,2.1)
+            )
+            self.load_asset(
+                f"{parent_path}/{props_path}/Pivot/Pivot.usd",
+                "/World/pivot",
+                rotation_euler=(90*np.pi/180, 0, -90*np.pi/180),
+                position=(-5,6,0)
             )
             # self.load_asset(f"{parent_path}/{props_path}/aruco_marker_0.usd", "/World/aruco_marker_0")
 
