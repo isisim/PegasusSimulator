@@ -33,7 +33,7 @@ class QuadraticThrustCurve(ThrustCurve):
         self._num_rotors = config.get("num_rotors", 4)
 
         # The rotor constant used for computing the total thrust produced by the rotor: T = rotor_constant * omega^2
-        self._rotor_constant = config.get("rotor_constant", [8.54858e-6, 8.54858e-6, 8.54858e-6, 8.54858e-6])
+        self._rotor_constant = config.get("rotor_constant", [8.54858e-5, 8.54858e-5, 8.54858e-5, 8.54858e-5])
         assert len(self._rotor_constant) == self._num_rotors
 
         # The rotor constant used for computing the total torque generated about the vehicle Z-axis
@@ -48,7 +48,7 @@ class QuadraticThrustCurve(ThrustCurve):
         self.min_rotor_velocity = config.get("min_rotor_velocity", [0, 0, 0, 0])
         assert len(self.min_rotor_velocity) == self._num_rotors
 
-        self.max_rotor_velocity = config.get("max_rotor_velocity", [1100, 1100, 1100, 1100])
+        self.max_rotor_velocity = config.get("max_rotor_velocity", [1500, 1500, 1500, 1500])
         assert len(self.max_rotor_velocity) == self._num_rotors
 
         # The actual speed references to apply to the vehicle rotor joints
