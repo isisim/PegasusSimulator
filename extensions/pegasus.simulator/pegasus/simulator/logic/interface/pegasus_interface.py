@@ -277,36 +277,29 @@ class PegasusInterface:
         try:
             carb.log_warn(f"Loading assets from usd_path: {usd_path}")
             carb.log_warn(f"Current path: {pathlib.Path().resolve()}")
-            # parent_path = pathlib.Path().resolve()
-            # parent_path = pathlib.Path().cwd() / "../.."
-            parent_path = pathlib.Path("/home/pedro-isi")
-            props_path = "Projects/AGRIWING/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Props"
-            # assets_path = "simulation_assets"
+
+            parent_path = pathlib.Path().resolve()
+            props_path = "PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Props"
+
             # Load base world
             self.load_asset(usd_path, "/World/layout", rotation_euler=(0, 0, 0))
             # Load assets
             self.load_asset(
-                f"{parent_path}/{props_path}/Docking_bay/Base_Docagem_X650_Aberta_Small.usd",
+                f"{parent_path}/{props_path}/docking_bay/docking_bay.usd",
                 "/World/base",
                 rotation_euler=(90*np.pi/180, 0, -90*np.pi/180),
-                position=(-3, 0, 2)
+                position=(-2.5, 1.2, 4.8)
             )
             self.load_asset(
-                f"{parent_path}/{props_path}/Linha_cultivo_Small/Linha_Cultivo_Small.usd",
+                f"{parent_path}/{props_path}/crop_rows_small/Linha_Cultivo_Small.usd",
                 "/World/plants",
                 rotation_euler=(90*np.pi/180, 0, 0),
             )
             self.load_asset(
-                f"{parent_path}/{props_path}/arucos/arucos.usd",
-                "/World/arucos",
-                rotation_euler=(90*np.pi/180, 0, 0),
-                position=(-1.5,0,2.1)
-            )
-            self.load_asset(
-                f"{parent_path}/{props_path}/Pivot/Pivot.usd",
+                f"{parent_path}/{props_path}/pivot/pivot.usd",
                 "/World/pivot",
                 rotation_euler=(90*np.pi/180, 0, -90*np.pi/180),
-                position=(-5,6,0)
+                position=(-2.5,8.5,0)
             )
             # self.load_asset(f"{parent_path}/{props_path}/aruco_marker_0.usd", "/World/aruco_marker_0")
 
